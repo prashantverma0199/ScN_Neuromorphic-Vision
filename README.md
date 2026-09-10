@@ -20,7 +20,7 @@ ScN-Based-Neuromorphic-Vision/
 │   ├── scn/
 │   │   └── scn_transform.py
 │   ├── dataset/
-│   │   └── convert_annotations.py
+│   │   └── annotation_conversion.py
 │   ├── training/
 │   │   └── train.py
 │   └── inference/
