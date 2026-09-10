@@ -56,7 +56,3 @@ pip install -r requirements.txt
 
 See `LICENSE` for details.
 
-```
-
-The key point is that the **first and second sets of triple backticks** must be preserved when you paste the README into GitHub. GitHub will then render the folder structure as a proper monospaced tree instead of running everything together.
-```
