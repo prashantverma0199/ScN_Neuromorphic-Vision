@@ -24,19 +24,8 @@ ScN-Based-Neuromorphic-Vision/
 │   ├── training/
 │   │   └── train.py
 │   └── inference/
-│       └── video_detection.py
-|
-├── configs/
-│   └── example.yaml
-│
-├── data/
-│   └── README.md
-│
-├── weights/
-│   └── README.md
-│
-└── results/
-    └── README.md
+        └── video_detection.py
+
 ```
 
 ## Experimental Calibration
