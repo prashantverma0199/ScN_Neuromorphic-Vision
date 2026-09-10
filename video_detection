@@ -1,0 +1,424 @@
+```python
+"""
+YOLO Video Object Detection
+
+Runs YOLO inference on an input video and produces:
+
+1. An annotated output video.
+2. A CSV file containing frame-wise detection statistics.
+
+No machine-specific or dataset-specific paths are stored in this script.
+"""
+
+import argparse
+import csv
+import os
+import time
+
+import cv2
+from ultralytics import YOLO
+
+
+# ============================================================
+# VIDEO DETECTION
+# ============================================================
+
+def run_detector(
+    model,
+    frame,
+    writer,
+    csv_writer,
+    frame_id,
+    fps_ema,
+    img_size,
+    confidence,
+    device,
+):
+    """
+    Run YOLO inference on a single video frame.
+
+    Parameters
+    ----------
+    model : YOLO
+        Loaded YOLO model.
+
+    frame : numpy.ndarray
+        Input video frame.
+
+    writer : cv2.VideoWriter
+        Output video writer.
+
+    csv_writer : csv.writer
+        CSV writer for frame statistics.
+
+    frame_id : int
+        Current frame number.
+
+    fps_ema : float
+        Previous exponential moving average FPS.
+
+    img_size : int
+        YOLO inference image size.
+
+    confidence : float
+        Minimum detection confidence.
+
+    device : str
+        Inference device, e.g. "0" or "cpu".
+
+    Returns
+    -------
+    float
+        Updated exponential moving average FPS.
+    """
+
+    start_time = time.perf_counter()
+
+    results = model.predict(
+        source=frame,
+        imgsz=img_size,
+        conf=confidence,
+        device=device,
+        verbose=False,
+    )
+
+    elapsed = time.perf_counter() - start_time
+
+    inference_fps = (
+        1.0 / elapsed
+        if elapsed > 0
+        else 0.0
+    )
+
+    # --------------------------------------------------------
+    # Smooth FPS using exponential moving average
+    # --------------------------------------------------------
+
+    if fps_ema == 0:
+        fps_ema = inference_fps
+    else:
+        fps_ema = (
+            0.9 * fps_ema
+            + 0.1 * inference_fps
+        )
+
+    # --------------------------------------------------------
+    # Draw YOLO annotations
+    # --------------------------------------------------------
+
+    annotated = results[0].plot()
+
+    boxes = results[0].boxes
+
+    detection_count = (
+        0
+        if boxes is None
+        else len(boxes)
+    )
+
+    # --------------------------------------------------------
+    # Save frame statistics
+    # --------------------------------------------------------
+
+    csv_writer.writerow(
+        [
+            frame_id,
+            detection_count,
+            inference_fps,
+        ]
+    )
+
+    # --------------------------------------------------------
+    # Add statistics to output frame
+    # --------------------------------------------------------
+
+    cv2.putText(
+        annotated,
+        f"Detections: {detection_count} | "
+        f"FPS: {fps_ema:.1f}",
+        (20, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.9,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA,
+    )
+
+    writer.write(annotated)
+
+    return fps_ema
+
+
+# ============================================================
+# VIDEO PROCESSING
+# ============================================================
+
+def process_video(
+    model_path,
+    video_path,
+    output_path,
+    csv_path,
+    img_size=416,
+    confidence=0.39,
+    device="0",
+):
+    """
+    Process a complete video using YOLO object detection.
+    """
+
+    print("\nLoading model...")
+
+    model = YOLO(model_path)
+
+    print("Model loaded successfully.")
+    print("Classes:", model.names)
+
+    # --------------------------------------------------------
+    # Open video
+    # --------------------------------------------------------
+
+    cap = cv2.VideoCapture(video_path)
+
+    if not cap.isOpened():
+        raise FileNotFoundError(
+            f"Cannot open video:\n{video_path}"
+        )
+
+    # --------------------------------------------------------
+    # Video properties
+    # --------------------------------------------------------
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    if not fps or fps <= 0:
+        fps = 30.0
+
+    width = int(
+        cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    )
+
+    height = int(
+        cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    )
+
+    total_frames = int(
+        cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    )
+
+    duration = (
+        total_frames / fps
+        if fps > 0
+        else 0.0
+    )
+
+    print("\nVideo information")
+    print("-" * 40)
+    print(f"Resolution : {width} × {height}")
+    print(f"FPS        : {fps:.2f}")
+    print(f"Frames     : {total_frames}")
+    print(f"Duration   : {duration:.2f} s")
+
+    # --------------------------------------------------------
+    # Create output directories
+    # --------------------------------------------------------
+
+    output_dir = os.path.dirname(output_path)
+
+    if output_dir:
+        os.makedirs(
+            output_dir,
+            exist_ok=True
+        )
+
+    csv_dir = os.path.dirname(csv_path)
+
+    if csv_dir:
+        os.makedirs(
+            csv_dir,
+            exist_ok=True
+        )
+
+    # --------------------------------------------------------
+    # Video writer
+    # --------------------------------------------------------
+
+    writer = cv2.VideoWriter(
+        output_path,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (width, height),
+    )
+
+    if not writer.isOpened():
+        raise RuntimeError(
+            "Could not create output video."
+        )
+
+    frame_id = 0
+    fps_ema = 0.0
+
+    start_time = time.perf_counter()
+
+    # --------------------------------------------------------
+    # Process video
+    # --------------------------------------------------------
+
+    with open(
+        csv_path,
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as csv_file:
+
+        csv_writer = csv.writer(csv_file)
+
+        csv_writer.writerow(
+            [
+                "frame",
+                "detections",
+                "inference_fps",
+            ]
+        )
+
+        while True:
+
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+
+            fps_ema = run_detector(
+                model=model,
+                frame=frame,
+                writer=writer,
+                csv_writer=csv_writer,
+                frame_id=frame_id,
+                fps_ema=fps_ema,
+                img_size=img_size,
+                confidence=confidence,
+                device=device,
+            )
+
+            frame_id += 1
+
+            if frame_id % 100 == 0:
+
+                print(
+                    f"Processed "
+                    f"{frame_id}/{total_frames} frames | "
+                    f"FPS: {fps_ema:.1f}"
+                )
+
+    # --------------------------------------------------------
+    # Release resources
+    # --------------------------------------------------------
+
+    cap.release()
+    writer.release()
+
+    elapsed = (
+        time.perf_counter()
+        - start_time
+    )
+
+    average_pipeline_fps = (
+        frame_id / elapsed
+        if elapsed > 0
+        else 0.0
+    )
+
+    # --------------------------------------------------------
+    # Summary
+    # --------------------------------------------------------
+
+    print("\n" + "=" * 55)
+    print("VIDEO DETECTION COMPLETE")
+    print("=" * 55)
+
+    print(f"Frames processed     : {frame_id}")
+    print(f"Processing time      : {elapsed:.2f} s")
+    print(f"Average pipeline FPS : {average_pipeline_fps:.2f}")
+    print(f"Annotated video      : {output_path}")
+    print(f"Detection CSV        : {csv_path}")
+
+    print("=" * 55)
+
+
+# ============================================================
+# COMMAND-LINE INTERFACE
+# ============================================================
+
+def parse_arguments():
+    """
+    Parse command-line arguments.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Run YOLO object detection on a video."
+    )
+
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="Path to the trained YOLO model."
+    )
+
+    parser.add_argument(
+        "--video",
+        required=True,
+        help="Path to the input video."
+    )
+
+    parser.add_argument(
+        "--output",
+        default="results/detection_output.mp4",
+        help="Path for the annotated output video."
+    )
+
+    parser.add_argument(
+        "--csv",
+        default="results/detections.csv",
+        help="Path for the detection CSV."
+    )
+
+    parser.add_argument(
+        "--img-size",
+        type=int,
+        default=416,
+        help="YOLO inference image size."
+    )
+
+    parser.add_argument(
+        "--conf",
+        type=float,
+        default=0.39,
+        help="YOLO confidence threshold."
+    )
+
+    parser.add_argument(
+        "--device",
+        default="0",
+        help='Inference device, e.g. "0" or "cpu".'
+    )
+
+    return parser.parse_args()
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
+
+if __name__ == "__main__":
+
+    args = parse_arguments()
+
+    process_video(
+        model_path=args.model,
+        video_path=args.video,
+        output_path=args.output,
+        csv_path=args.csv,
+        img_size=args.img_size,
+        confidence=args.conf,
+        device=args.device,
+    )
+```
