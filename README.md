@@ -25,10 +25,7 @@ ScN-Based-Neuromorphic-Vision/
 │   │   └── train.py
 │   └── inference/
 │       └── video_detection.py
-│
-├── notebooks/
-│   └── ScN_IR_YOLO_training.ipynb
-│
+|
 ├── configs/
 │   └── example.yaml
 │
