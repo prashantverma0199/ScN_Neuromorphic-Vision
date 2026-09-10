@@ -1,2 +1,62 @@
-# ScN_Neuromorphic-Vision
-Computational framework for ScN-based neuromorphic vision, integrating experimentally inspired photoresponse transformation with YOLO-based infrared object detection.
+# ScN-Based Neuromorphic Vision
+
+Computational framework for exploring **Scandium Nitride (ScN)-based neuromorphic vision** using experimentally inspired photoresponse transformation and YOLO-based infrared object detection.
+
+## Dataset
+
+This project uses the **LLVIP infrared dataset**. The dataset is not included in this repository.
+
+## Repository Structure
+
+```text
+ScN-Based-Neuromorphic-Vision/
+│
+├── README.md
+├── LICENSE
+├── requirements.txt
+├── .gitignore
+│
+├── src/
+│   ├── scn/
+│   │   └── scn_transform.py
+│   ├── dataset/
+│   │   └── convert_annotations.py
+│   ├── training/
+│   │   └── train.py
+│   └── inference/
+│       └── video_detection.py
+│
+├── notebooks/
+│   └── ScN_IR_YOLO_training.ipynb
+│
+├── configs/
+│   └── example.yaml
+│
+├── data/
+│   └── README.md
+│
+├── weights/
+│   └── README.md
+│
+└── results/
+    └── README.md
+```
+
+## Experimental Calibration
+
+The transformation is based on experimentally measured ScN photoresponse. Device-specific calibration parameters are not included in this public repository.
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## License
+
+See `LICENSE` for details.
+
+```
+
+The key point is that the **first and second sets of triple backticks** must be preserved when you paste the README into GitHub. GitHub will then render the folder structure as a proper monospaced tree instead of running everything together.
+```
